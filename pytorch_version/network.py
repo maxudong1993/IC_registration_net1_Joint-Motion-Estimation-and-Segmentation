@@ -167,6 +167,6 @@ class Seg_Motion_Net(nn.Module):
         net['outs'] = self.conv8s(net['comb_2s'])
         net['outs_softmax'] = F.softmax(net['outs'], dim=1)
         net['warped_outs'] = F.grid_sample(net['outs_softmax'], net['grid'], padding_mode='border') #xudong uncomment
-        print(net['warped_outs'].shape)
+        #print(net['warped_outs'].shape)
 
         return net
