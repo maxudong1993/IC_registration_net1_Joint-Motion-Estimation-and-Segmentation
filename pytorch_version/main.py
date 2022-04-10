@@ -21,7 +21,7 @@ def get_to_cuda(cuda):
         return tensor.cuda() if cuda else tensor
     return to_cuda
 
-
+#assume the pixel inside the lable image can be divided to 4 classes; which means the value of the pixel will be 0,1,2,3; set the corrensponding onehot to 1; otherwise 0;
 def convert_to_1hot(label, n_class):
     # Convert a label map (N x 1 x H x W) into a one-hot representation (N x C x H x W)
     label_swap = label.swapaxes(1, 3)
@@ -88,17 +88,23 @@ def train(epoch):
     LV_dice = 0
     Myo_dice = 0
     RV_dice = 0
+    # print(len(training_data_loader))
     for batch_idx, batch in tqdm(enumerate(training_data_loader, 1),
                                  total=len(training_data_loader)):
+        # pdb.set_trace()
+        #x:a slice of time t, x_pred: the correnspoding slice of time t+random(ed/es) , x_gnd: seg of x_pred (pixels are divided to 4 classes, and the values are 0,1,2,3)
         x, x_pred, x_gnd = batch
         x_c = Variable(x.type(Tensor))
         x_predc = Variable(x_pred.type(Tensor))
         x_gndc = Variable(x_gnd.type(torch.cuda.LongTensor))
+        # print('****************')
+        # print(x_gndc.shape)
 
         optimizer.zero_grad()
-        net = model(x_c, x_predc, x_c)
-        flow_loss = flow_criterion(net['fr_st'], x_predc) + 0.01 * huber_loss(net['out'])
-        seg_loss = seg_criterion(net['outs_softmax'], x_gndc)
+        net = model(x_c, x_predc, x_c) #the third parameter is the moving image which the offset will apply on; also it will be as the input of the seg branch
+        flow_loss = flow_criterion(net['fr_st'], x_predc) + 0.01 * huber_loss(net['out']) #registration loss
+        # seg_loss = seg_criterion(net['outs_softmax'], x_gndc)
+        seg_loss = seg_criterion(net['warped_outs'], x_gndc)#xuddong modified
         loss = flow_loss + 0.01 * seg_loss
         flow_loss.backward()
         optimizer.step()
@@ -107,7 +113,8 @@ def train(epoch):
         optimizer.step()
 
         epoch_loss.append(loss.item())
-        pred = net['outs_softmax'].data.cpu().numpy()
+        # pred = net['outs_softmax'].data.cpu().numpy()
+        pred = net['warped_outs'].data.cpu().numpy()#xudong modified
         truth = convert_to_1hot(x_gnd[:,None].numpy(), n_class)
         LV_dice += categorical_dice(pred, truth, 1)
         Myo_dice += categorical_dice(pred, truth, 2)
@@ -162,25 +169,27 @@ def test():
 
 
 data_path = '../test'
+#xudong data has four dimensions 216*256*9*30 (9 is z axes; 30 is time)
 train_set = TrainDataset(data_path, transform=data_augment)
 
 # loading the data
 training_data_loader = DataLoader(dataset=train_set, num_workers=n_worker,
                                   batch_size=bs, shuffle=True)
 
-for epoch in range(0, n_epoch + 1):
+if __name__ == '__main__':
+    for epoch in range(0, n_epoch + 1):
 
-    print('Epoch {}'.format(epoch))
+        print('Epoch {}'.format(epoch))
 
-    start = time.time()
-    train(epoch)
-    end = time.time()
-    print("training took {:.8f}".format(end-start))
+        start = time.time()
+        train(epoch)
+        end = time.time()
+        print("training took {:.8f}".format(end-start))
 
-    for frame in ['ED', 'ES']:
-        test_set = TestDataset(data_path, frame)
-        testing_data_loader = DataLoader(dataset=test_set, num_workers=n_worker,
-                                         batch_size=1, shuffle=False)
-        test()
+        for frame in ['ED', 'ES']:
+            test_set = TestDataset(data_path, frame)
+            testing_data_loader = DataLoader(dataset=test_set, num_workers=n_worker,
+                                             batch_size=1, shuffle=False)
+            test()
 
 

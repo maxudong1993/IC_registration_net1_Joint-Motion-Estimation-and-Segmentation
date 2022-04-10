@@ -13,7 +13,7 @@ def relu():
 
 def conv(in_channels, out_channels, kernel_size=3, stride=1, padding = 1, nonlinearity = relu):
     conv_layer = nn.Conv2d(in_channels = in_channels, out_channels= out_channels, kernel_size = kernel_size, stride = stride, padding = padding, bias = False)
-    nn.init.xavier_uniform(conv_layer.weight, gain=np.sqrt(2.0))
+    nn.init.xavier_uniform_(conv_layer.weight, gain=np.sqrt(2.0))
 
     nll_layer = nonlinearity()
     bn_layer = nn.BatchNorm2d(out_channels)
@@ -38,12 +38,13 @@ def conv_blocks_3(in_channels, out_channels, strides=1):
     layers = [conv1, conv2, conv3]
     return nn.Sequential(*layers)
 
-
+#x is just used to form the shape of base (-1,1) grid; base+offset can be used to transform the image to another using F.grid_sample
 def generate_grid(x, offset):
     x_shape = x.size()
     grid_w, grid_h = torch.meshgrid([torch.linspace(-1, 1, x_shape[2]), torch.linspace(-1, 1, x_shape[3])])  # (h, w)
     grid_w = grid_w.cuda().float()
     grid_h = grid_h.cuda().float()
+    # print(offset.shape)
 
     grid_w = nn.Parameter(grid_w, requires_grad=False)
     grid_h = nn.Parameter(grid_h, requires_grad=False)
@@ -111,6 +112,7 @@ class Seg_Motion_Net(nn.Module):
 
         self.conv_blocks = nn.Sequential(*self.conv_blocks)
         self.conv = nn.Sequential(*self.conv)
+        # print(self.conv)
 
         self.conv6 = nn.Conv2d(64 * 5, 64, 1)
         self.conv7 = conv(64, 64, 1, 1, 0)
@@ -164,6 +166,7 @@ class Seg_Motion_Net(nn.Module):
         net['comb_2s'] = self.conv7s(net['comb_1s'])
         net['outs'] = self.conv8s(net['comb_2s'])
         net['outs_softmax'] = F.softmax(net['outs'], dim=1)
-        # net['warped_outs'] = F.grid_sample(net['outs_softmax'], net['grid'], padding_mode='border')
+        net['warped_outs'] = F.grid_sample(net['outs_softmax'], net['grid'], padding_mode='border') #xudong uncomment
+        print(net['warped_outs'].shape)
 
         return net

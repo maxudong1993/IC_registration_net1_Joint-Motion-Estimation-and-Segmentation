@@ -5,6 +5,7 @@ import h5py
 #from utils.util import mkdir
 from scipy import ndimage, misc
 import cv2
+import pdb
 
 
 def is_image_file(filename):
@@ -32,6 +33,7 @@ def load_data_3d(data_path, filename, size):
     nim = nib.load(os.path.join(data_path, filename, 'sa.nii.gz'))
     image = nim.get_data()[:, :, :, :]
     image = np.array(image, dtype='float32')
+    #pdb.set_trace()
 
     # generate random index for t and z dimension
     rand_t = np.random.randint(0,image.shape[3])
@@ -40,30 +42,37 @@ def load_data_3d(data_path, filename, size):
 
     # preprocessing
     image_max = np.max(np.abs(image))
-    image /= image_max
+    image = image/image_max
     image_sa = image[...,rand_z, rand_t]
+    # print(image_sa)
+    #pdb.set_trace()
     image_sa = image_sa[np.newaxis, np.newaxis]
+    #pdb.set_trace()
 
     frame = np.random.choice(['ED','ES'])
 
     nim = nib.load(os.path.join(data_path, filename, 'sa_'+frame+'.nii.gz'))
     image = nim.get_data()[:, :, :]
     image = np.array(image, dtype='float32')
+    #pdb.set_trace()
 
     nim_seg = nib.load(os.path.join(data_path, filename, 'label_sa_'+frame+'.nii.gz'))
     seg = nim_seg.get_data()[:, :, :]
 
     image_frame = image[...,rand_z]
-    image_frame /= image_max
+    image_frame = image_frame / image_max
     seg_frame = seg[...,rand_z]
+
 
     image_frame = image_frame[np.newaxis, np.newaxis]
     seg_frame = seg_frame[np.newaxis, np.newaxis]
 
     image_bank = np.concatenate((image_sa, image_frame), axis=1)
+    #pdb.set_trace()
 
     image_bank = crop_and_fill(image_bank, size)
     seg_bank = crop_and_fill(seg_frame, size)
+    #pdb.set_trace()
     image_bank = np.transpose(image_bank, (0, 1, 3, 2))
     seg_bank = np.transpose(seg_bank, (0, 1, 3, 2))
     image_bank = np.array(image_bank, dtype='float32')
@@ -124,7 +133,7 @@ def load_test_data(data_path, filename, frame, size):
     seg_bank = []
     nim = nib.load(os.path.join(data_path, filename, 'sa_' + frame + '.nii.gz'))
     image = nim.get_data()[:, :, :]
-    image /= image_max
+    image = image/image_max
     image = np.array(image, dtype='float32')
 
     nim_seg = nib.load(os.path.join(data_path, filename, 'label_sa_' + frame + '.nii.gz'))

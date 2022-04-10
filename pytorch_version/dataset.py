@@ -21,14 +21,17 @@ class TrainDataset(data.Dataset):
         np.random.seed(datetime.datetime.now().second + datetime.datetime.now().microsecond)
 
         # load the nifti images
-
-        input, target = load_data_3d(self.data_path, self.filename[index], size = 192)
-
+        # target is the seg of ed/es; value of each pixel is 0,1,2,3; pixels are divided into 4 classes
+        input, target = load_data_3d(self.data_path, self.filename[index], size = 192) 
+        #pdb.set_trace()
         if self.transform:
             input, target = self.transform(input, target)
 
-        image = input[0,:1]
-        image_pred = input[0,1:]
+        image = input[0,:1] # image at time t [random select a slice(z 9) from a random volume(t 30)]
+        # print(image.shape)
+        image_pred = input[0,1:] # (random select from source ed/es which are two from the 30 volumes; z is the same as image)
+        # print(image_pred.shape)
+        # print(target[0,0].shape)
 
         return image, image_pred, target[0,0]
 
